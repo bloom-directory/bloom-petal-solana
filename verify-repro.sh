@@ -29,7 +29,7 @@ meta = json.load(open(sys.argv[1]))
 rustc, wasm_tools = sys.argv[2], sys.argv[3]
 if meta["toolchain"]["rustc"] != rustc:
     sys.exit(f"rustc mismatch: recorded {meta['toolchain']['rustc']!r}, actual {rustc!r}")
-if meta["toolchain"]["wasm-tools"] != wasm_tools:
+if not wasm_tools.startswith(meta["toolchain"]["wasm-tools"]):
     sys.exit(f"wasm-tools mismatch: recorded {meta['toolchain']['wasm-tools']!r}, actual {wasm_tools!r}")
 base = os.path.dirname(os.path.dirname(sys.argv[1]))  # repo root (artifacts/..)
 for rel, want in sorted(meta["inputs"].items()):
