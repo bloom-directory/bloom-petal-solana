@@ -23,6 +23,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 STAGING="$(mktemp -d "${TMPDIR:-/tmp}/solana-driver-release.XXXXXX")"
 ARCHIVE_NAME="${PETAL_NAME}-${TAG}.petal.tar.gz"
 
+if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
+  echo "refusing to release from a dirty working tree (commit or stash first)" >&2
+  git -C "$ROOT" status --short >&2
+  exit 1
+fi
+
 SOURCE_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
 TOOLING_COMMIT="$(python3 -c "
 import tomllib
@@ -39,15 +45,16 @@ route_digest="$(cd "$ROOT" && cargo run --quiet --manifest-path scripts/package-
 
 echo "==> staging release payload"
 mkdir -p "$STAGING/pkg"
-# The package tarball: source + built route components + pinning manifests.
-# --owner/--group/--numeric-owner zero every entry's uid/gid: bloom-petals'
-# archive reader (crates/bloom-petals/src/package.rs) rejects nonzero owner
-# metadata as untrusted archive content, matching the ustar headers its own
-# write_package_tar produces.
-tar --owner=0 --group=0 --numeric-owner \
-  -czf "$STAGING/${ARCHIVE_NAME}" \
-  --exclude='.git' --exclude='target' --exclude='*/target' --exclude='test-ledger' \
-  -C "$ROOT" .
+# The package tarball: source + built route components + pinning manifests,
+# with ustar headers bloom-petals' archive reader (crates/bloom-petals/src/
+# package.rs) will actually accept — it rejects nonzero owner/mtime/atime,
+# and GNU tar's CLI cannot be made to never emit a PAX/GNU extended header
+# for those, so this is built with the `tar` crate directly (see
+# scripts/package-hash's `pack` mode) rather than shelled out to `tar`.
+# Prints package_hash: the hash over every file physically in the archive
+# (no exclusions) — a different, broader value than source_package_hash
+# above, and the one install_prebuilt_petal_archive actually checks.
+package_hash="$(cd "$ROOT" && cargo run --quiet --manifest-path scripts/package-hash/Cargo.toml -- pack "$ROOT" "$STAGING/${ARCHIVE_NAME}")"
 
 archive_sha256="$(sha256sum "$STAGING/${ARCHIVE_NAME}" | cut -d' ' -f1)"
 echo "${archive_sha256}  ${ARCHIVE_NAME}" > "$STAGING/SHA256SUMS"
@@ -61,7 +68,7 @@ cat > "$STAGING/petal-release.json" <<EOF
   "release_tag": "${TAG}",
   "archive": "${ARCHIVE_NAME}",
   "archive_sha256": "${archive_sha256}",
-  "package_hash": "${source_package_hash}",
+  "package_hash": "${package_hash}",
   "tooling_repository": "${TOOLING_REPOSITORY}",
   "tooling_commit": "${TOOLING_COMMIT}"
 }
@@ -78,7 +85,8 @@ Verified native SOL transfer driver: constructs legacy single-signer System
 Program transfers through Machine-mediated chain reads; never signs or
 broadcasts itself.
 
-- **source_package_hash / package_hash** (blake3): \`${source_package_hash}\`
+- **package_hash** (blake3, installed package identity): \`${package_hash}\`
+- **source_package_hash** (blake3, source-tree reproducibility): \`${source_package_hash}\`
 - **route artifact digest** (blake3): \`${route_digest}\`
 - **archive_sha256**: \`${archive_sha256}\`
 - **source_commit**: \`${SOURCE_COMMIT}\`
@@ -99,6 +107,7 @@ gh release create "$TAG" \
   "$STAGING/verifier-corpus.json"
 
 echo "release $TAG published: https://github.com/$REPO/releases/tag/$TAG"
+echo "package_hash=$package_hash"
 echo "source_package_hash=$source_package_hash"
 echo "route_digest=$route_digest"
 echo "archive_sha256=$archive_sha256"

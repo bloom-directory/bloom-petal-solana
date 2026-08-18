@@ -3,8 +3,21 @@
 //! bloom workspace.
 //!
 //! Usage:
-//!   package-hash hash   <file>        # blake3 hex of a file
-//!   package-hash source <package-dir> # source_package_hash (blake3)
+//!   package-hash hash    <file>              # blake3 hex of a file
+//!   package-hash source  <package-dir>       # source_package_hash (blake3)
+//!   package-hash pack <package-dir> <out.tar.gz>
+//!     # Builds the release archive bloom-petals' PreparedPetalPackage
+//!     # reader (crates/bloom-petals/src/package.rs) will actually parse:
+//!     # plain ustar headers, zeroed owner/mtime (that reader rejects any
+//!     # nonzero owner/mtime/atime as untrusted archive content, and GNU
+//!     # tar's CLI cannot be coaxed into never emitting PAX/GNU extended
+//!     # headers for those fields — hence building it here instead of
+//!     # shelling out to `tar`). Prints the resulting package_hash: the
+//!     # hash over EVERY file physically in the archive, with no
+//!     # exclusions — this is a different, broader value than `source`'s
+//!     # (which excludes build-manifest.json/artifacts/routes to avoid a
+//!     # self-reference loop) and is what install_prebuilt_petal_archive
+//!     # actually checks a release against.
 
 use std::path::Path;
 
@@ -37,6 +50,40 @@ fn main() {
                 p != "artifacts/build-manifest.json" && !p.starts_with("artifacts/routes/")
             });
             files.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+            println!("{}", package_hash(&files));
+        }
+        "pack" => {
+            if args.len() < 4 {
+                eprintln!("usage: package-hash pack <package-dir> <out.tar.gz>");
+                std::process::exit(2);
+            }
+            let root = Path::new(&args[2]);
+            let out_path = Path::new(&args[3]);
+            let mut files: Vec<(String, Vec<u8>)> = Vec::new();
+            walk(root, root, &mut files);
+            files.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+
+            let out = std::fs::File::create(out_path).expect("create output archive");
+            let encoder = flate2::write::GzEncoder::new(out, flate2::Compression::default());
+            let mut builder = tar::Builder::new(encoder);
+            for (path, bytes) in &files {
+                let mut header = tar::Header::new_ustar();
+                header.set_size(bytes.len() as u64);
+                header.set_mode(0o644);
+                header.set_uid(0);
+                header.set_gid(0);
+                header.set_mtime(0);
+                header.set_entry_type(tar::EntryType::Regular);
+                header.set_cksum();
+                builder
+                    .append_data(&mut header, path, bytes.as_slice())
+                    .expect("append archive entry");
+            }
+            builder
+                .into_inner()
+                .expect("finish tar")
+                .finish()
+                .expect("finish gzip");
             println!("{}", package_hash(&files));
         }
         other => {
