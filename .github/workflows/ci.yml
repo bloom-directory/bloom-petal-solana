@@ -68,4 +68,4 @@ jobs:
           install -m 0755 /tmp/wasm-tools-1.255.0-x86_64-linux/wasm-tools /usr/local/bin/wasm-tools
           wasm-tools --version
       - name: Verify hermetic reproduction
-        run: verify-repro.sh
+        run: ./verify-repro.sh
