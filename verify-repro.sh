@@ -53,7 +53,7 @@ echo "==> rebuilding components in a fresh CARGO_TARGET_DIR"
 (
   cd "$extracted"
   CARGO_TARGET_DIR="$scratch/target" \
-    cargo build --manifest-path Cargo.toml \
+    cargo build --locked --manifest-path Cargo.toml \
       --target wasm32-unknown-unknown --release --quiet
   mkdir -p petal/solana-driver
   for route in transfer.stage.json transfer.assemble.json; do
@@ -67,8 +67,13 @@ echo "==> recomputing package digests"
 helper="cargo run --quiet --manifest-path $extracted/scripts/package-hash/Cargo.toml --"
 rebuilt_source="$($helper source "$extracted")"
 committed_source="$(python3 -c "import json; print(json.load(open('$petal_root/artifacts/build-manifest.json'))['source_package_hash'])")"
-[ "$rebuilt_source" = "$committed_source" ] \
-  || fail "source_package_hash: rebuilt $rebuilt_source != committed $committed_source"
+if [ "$rebuilt_source" != "$committed_source" ]; then
+  echo "route hashes (rebuilt):"
+  for route in transfer.assemble.json transfer.stage.json; do
+    echo "  $route: $($helper hash "$extracted/petal/solana-driver/$route.wasm")"
+  done
+  fail "source_package_hash: rebuilt $rebuilt_source != committed $committed_source"
+fi
 
 for route in transfer.assemble.json transfer.stage.json; do
   rebuilt_hash="$($helper hash "$extracted/petal/solana-driver/$route.wasm")"
