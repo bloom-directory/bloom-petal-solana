@@ -1,6 +1,6 @@
 {
   "schema": "bloom.petal.build-manifest.v1",
-  "source_package_hash": "b1eba72587ecb86da59d52bd26e9bd2d8c5473342683db6c894bc0ab6bf67dda",
+  "source_package_hash": "c05e8f0031ece1596c179044c7dee728bbf5cb9a79433f096921bdd37f75bfe6",
   "routes": [
     {
       "route_id": "r000001",
