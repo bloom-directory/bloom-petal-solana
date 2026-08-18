@@ -6,9 +6,10 @@
     "wasm-tools": "wasm-tools 1.255.0"
   },
   "inputs": {
-    "Cargo.lock": "4f38c93f1e6b12d92bd68abe82cd751e227806304113092c812efa86d2eb7716",
-    "Cargo.toml": "e38ae5e6024dac5d31b0415551a7197c090362b6c71b57338a7295c9cbf779cc",
-    "src/lib.rs": "2a06957073ee9f216af071f1b1ca78d2e5e3797f0432d3b97b19148f8a11ede2",
+    "Cargo.lock": "e8fceb69c78e7d55eb7ef0b44127ad88502e2496a10584417ecd65129018ced1",
+    "Cargo.toml": "89ae7519ab72a87c0598f0ed8825410f87ed1e04ae2766fb47addaae82e7640a",
+    "src/lib.rs": "2e9c03715771c769f7ecd952df72de428fcee1c8d445ee81732b455a75e64b13",
+    "src/amount.rs": "670e9c58ca6fe7ed909f74f3ab494c03fc681da41c917abb8d7ec2faf1527308",
     "wit/route.wit": "afaab6fa762567b2380d28183befba177435c62a94275dc371b1b358c01d71cc",
     "wit/deps/route/route.wit": "8afb43d2f9eb1996c1cfff26f90f43b13810f5fa0b57d38400efcac07d89c11e",
     "wit/deps/chain/chain.wit": "94060f9f1b50cea0f49a4ef43d34d8e41dd8bb2d552934c0a50c62b78df3dcf8",

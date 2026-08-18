@@ -19,6 +19,8 @@ use serde_json::json;
 use sha2::{Digest as _, Sha256};
 use std::str::FromStr;
 
+mod amount;
+
 wit_bindgen::generate!({
     path: "wit",
     world: "route-file",
@@ -69,6 +71,13 @@ struct StageResponse {
     last_valid_block_height: u64,
     operation_class: &'static str,
     crypto_suite: &'static str,
+    /// Declared by this driver, never verifier-proven: the exact profile
+    /// name this stage call actually ran against (echoing the request
+    /// confirms it wasn't silently substituted) and a fixed-precision SOL
+    /// rendering of `lamports` for display. Machine/Broker must keep these
+    /// labeled asserted, not verified — see Verified Chain Petals.md.
+    chain_profile: String,
+    lamports_display_sol: String,
 }
 
 /// `transfer.assemble.json` request body.
@@ -229,6 +238,8 @@ fn stage(body: Vec<u8>) -> Result<StageResponse, RouteError> {
         last_valid_block_height: last_valid,
         operation_class: OPERATION_CLASS,
         crypto_suite: CRYPTO_SUITE,
+        chain_profile: req.chain_profile,
+        lamports_display_sol: amount::format_sol(req.lamports),
     })
 }
 

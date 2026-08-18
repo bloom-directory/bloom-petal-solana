@@ -1,23 +1,23 @@
 {
   "schema": "bloom.petal.build-manifest.v1",
-  "source_package_hash": "3aae6ad656b9171e37669861e520edcc7234dfb56fee37e0fb828e78f342b223",
+  "source_package_hash": "e609c7a8c7bffa359bcfc7634b3235ee1e7a35db191703e804c7bd185e23eeef",
   "routes": [
     {
       "route_id": "r000001",
       "pattern": "transfer.assemble.json",
       "source_path": "petal/solana-driver/transfer.assemble.json.wasm",
-      "source_hash": "16f1def7b7dafe6c977304fdd3e7367370cf1c55abae7bbe9c662f9296bbbd77",
+      "source_hash": "fb9411816528fe0e7476040bbacf7b6b3ab162a9949d251cc4803e61dd0b7e51",
       "artifact_path": "artifacts/routes/r000001.wasm",
-      "artifact_hash": "16f1def7b7dafe6c977304fdd3e7367370cf1c55abae7bbe9c662f9296bbbd77",
+      "artifact_hash": "fb9411816528fe0e7476040bbacf7b6b3ab162a9949d251cc4803e61dd0b7e51",
       "abi": "component:bloom:route@0.1.0"
     },
     {
       "route_id": "r000002",
       "pattern": "transfer.stage.json",
       "source_path": "petal/solana-driver/transfer.stage.json.wasm",
-      "source_hash": "16f1def7b7dafe6c977304fdd3e7367370cf1c55abae7bbe9c662f9296bbbd77",
+      "source_hash": "fb9411816528fe0e7476040bbacf7b6b3ab162a9949d251cc4803e61dd0b7e51",
       "artifact_path": "artifacts/routes/r000002.wasm",
-      "artifact_hash": "16f1def7b7dafe6c977304fdd3e7367370cf1c55abae7bbe9c662f9296bbbd77",
+      "artifact_hash": "fb9411816528fe0e7476040bbacf7b6b3ab162a9949d251cc4803e61dd0b7e51",
       "abi": "component:bloom:route@0.1.0"
     }
   ]

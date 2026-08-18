@@ -48,6 +48,7 @@ dependencies = [
  "sha2",
  "solana-message",
  "solana-system-interface",
+ "thiserror",
  "wit-bindgen",
 ]
 
