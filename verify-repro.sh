@@ -50,18 +50,13 @@ extracted="$scratch"
 [ -d "$extracted" ] || fail "archive extraction"
 
 echo "==> rebuilding components in a fresh CARGO_TARGET_DIR"
-(
-  cd "$extracted"
-  CARGO_TARGET_DIR="$scratch/target" \
-    cargo build --locked --manifest-path Cargo.toml \
-      --target wasm32-unknown-unknown --release --quiet
-  mkdir -p petal/solana-driver
-  for route in transfer.stage.json transfer.assemble.json; do
-    wasm-tools component new \
-      "$scratch/target/wasm32-unknown-unknown/release/bloom_solana_driver_petal.wasm" \
-      -o "petal/solana-driver/${route}.wasm"
-  done
-)
+"$extracted/scripts/hermetic-build.sh" "$extracted" "$scratch/target"
+mkdir -p "$extracted/petal/solana-driver"
+for route in transfer.stage.json transfer.assemble.json; do
+  wasm-tools component new \
+    "$scratch/target/wasm32-unknown-unknown/release/bloom_solana_driver_petal.wasm" \
+    -o "$extracted/petal/solana-driver/${route}.wasm"
+done
 
 echo "==> recomputing package digests"
 helper="cargo run --quiet --manifest-path $extracted/scripts/package-hash/Cargo.toml --"

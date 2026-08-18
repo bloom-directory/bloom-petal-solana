@@ -20,7 +20,11 @@ solana-message = { version = "4.5.0", default-features = false, features = ["win
 solana-system-interface = { version = "3.3.0", default-features = false, features = ["bincode"] }
 
 [profile.release]
-# Deterministic artifacts across clean builds: no incremental machinery,
-# stable codegen, panic on overflow like the fixture profile.
+# Hermetic, machine-independent artifacts: no incremental machinery, single
+# codegen unit, full LTO, no debug info, no embedded source paths.
 incremental = false
 panic = "abort"
+codegen-units = 1
+lto = true
+debug = false
+strip = "symbols"

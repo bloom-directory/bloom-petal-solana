@@ -4,10 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 TARGET_ROOT="${ROOT}/target"
 
-cargo build \
-  --manifest-path "${ROOT}/Cargo.toml" \
-  --target wasm32-unknown-unknown \
-  --release
+"${ROOT}/scripts/hermetic-build.sh" "${ROOT}" "${TARGET_ROOT}"
 
 mkdir -p "${ROOT}/petal/solana-driver"
 for route in transfer.stage.json transfer.assemble.json; do
