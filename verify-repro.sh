@@ -72,6 +72,10 @@ if [ "$rebuilt_source" != "$committed_source" ]; then
   for route in transfer.assemble.json transfer.stage.json; do
     echo "  $route: $($helper hash "$extracted/petal/solana-driver/$route.wasm")"
   done
+  echo "extracted files:"
+  ( cd "$extracted" && find . -type f -not -path '*/target/*' | sort | while read -r f; do
+      echo "  $($helper sha256 "$f")  $f"
+    done )
   fail "source_package_hash: rebuilt $rebuilt_source != committed $committed_source"
 fi
 
