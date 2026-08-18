@@ -17,14 +17,14 @@ echo "==> building package artifacts"
 "${ROOT}/scripts/build.sh"
 
 echo "==> computing digests"
-source_package_hash="$(cd "$ROOT" && cargo run --quiet --manifest-path scripts/package-hash/Cargo.toml -- "$ROOT")"
-route_digest="$(cd "$ROOT" && cargo run --quiet --manifest-path scripts/package-hash/Cargo.toml -- --route "$ROOT/petal/solana-driver/transfer.stage.json.wasm")"
+source_package_hash="$(cd "$ROOT" && cargo run --quiet --manifest-path scripts/package-hash/Cargo.toml -- source "$ROOT")"
+route_digest="$(cd "$ROOT" && cargo run --quiet --manifest-path scripts/package-hash/Cargo.toml -- hash "$ROOT/petal/solana-driver/transfer.stage.json.wasm")"
 
 echo "==> staging release payload"
 mkdir -p "$STAGING/pkg"
 # The package tarball: source + built route components + pinning manifests.
 tar -czf "$STAGING/bloom-petal-solana-${TAG}.tar.gz" \
-  --exclude target --exclude .git \
+  --exclude='.git' --exclude='target' --exclude='*/target' --exclude='test-ledger' \
   -C "$ROOT" .
 
 cp "$ROOT/artifacts/build-manifest.json" "$STAGING/build-manifest.json"
