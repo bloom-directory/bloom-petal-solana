@@ -14,7 +14,7 @@
 # No destructive operations: all scratch state lands in a mktemp directory.
 set -euo pipefail
 
-petal_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+petal_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 scratch="$(mktemp -d "${TMPDIR:-/tmp}/solana-driver-repro.XXXXXX")"
 trap 'true' EXIT
 
