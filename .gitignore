@@ -1,2 +1,6 @@
 /target/
+**/target/
+/petal/
+/artifacts/routes/
 artifacts/catalog-entry.json
+/test-ledger/

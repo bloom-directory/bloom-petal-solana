@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: rustup show
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: rustup show
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - run: cargo clippy --target wasm32-unknown-unknown --locked -- -D warnings
+
+  build:
+    name: build driver component
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: rustup show
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Install wasm-tools 1.255.0 (digest-pinned)
+        run: |
+          curl -sSL -o /tmp/wasm-tools.tar.gz \
+            https://github.com/bytecodealliance/wasm-tools/releases/download/v1.255.0/wasm-tools-1.255.0-x86_64-linux.tar.gz
+          echo "a62237f4731c45f665f1115cad39acaeec02963cbc848c9473ab033eed837072  /tmp/wasm-tools.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/wasm-tools.tar.gz -C /tmp
+          install -m 0755 /tmp/wasm-tools-1.255.0-x86_64-linux/wasm-tools /usr/local/bin/wasm-tools
+          wasm-tools --version
+      - name: Build driver component
+        run: scripts/build.sh
+
+  verify-repro:
+    name: verify hermetic reproduction
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: rustup show
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+      - name: Install wasm-tools 1.255.0 (digest-pinned)
+        run: |
+          curl -sSL -o /tmp/wasm-tools.tar.gz \
+            https://github.com/bytecodealliance/wasm-tools/releases/download/v1.255.0/wasm-tools-1.255.0-x86_64-linux.tar.gz
+          echo "a62237f4731c45f665f1115cad39acaeec02963cbc848c9473ab033eed837072  /tmp/wasm-tools.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/wasm-tools.tar.gz -C /tmp
+          install -m 0755 /tmp/wasm-tools-1.255.0-x86_64-linux/wasm-tools /usr/local/bin/wasm-tools
+          wasm-tools --version
+      - name: Verify hermetic reproduction
+        run: verify-repro.sh
