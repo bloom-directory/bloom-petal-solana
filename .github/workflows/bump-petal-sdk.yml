@@ -1,0 +1,157 @@
+name: Bump Petal SDK
+
+# This workflow advances the pinned bloom-directory/petal SDK revision to the
+# petal repository's default-branch head and opens a reviewed pull request.
+# The pin lives in several places that must stay in sync: petal-build.toml
+# [sdk], route/Cargo.toml, scripts/build.sh, and this repository's CI pin.
+# All occurrences of the current revision string are rewritten together.
+#
+# RELEASE_PR_TOKEN must be a repository secret containing a fine-grained PAT
+# with Contents: read/write and Pull requests: read/write, mirroring the
+# convention used by the bloom repository's Propose Release workflow. A
+# separate token lets the generated PR receive normal pull_request CI.
+
+on:
+  schedule:
+    - cron: "0 7 * * 5"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: bump-petal-sdk
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bump:
+    name: Open reviewed SDK bump PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+      BASE: ${{ github.event.repository.default_branch }}
+      BRANCH: chore/bump-petal-sdk
+    steps:
+      - name: Require release PR token
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::configure the RELEASE_PR_TOKEN repository secret before running this workflow"
+            exit 1
+          fi
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PR_TOKEN }}
+
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - name: Resolve and rewrite the pinned SDK revision
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          repo="petal"
+          url="https://github.com/bloom-directory/${repo}.git"
+          new="$(git ls-remote "$url" HEAD | cut -f1)"
+          if [[ ! "$new" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::could not resolve HEAD of $url"
+            exit 1
+          fi
+
+          old="$(sed -n -E '/^\[sdk\]/,/^\[/{s/^rev = "([0-9a-f]{40})"/\1/p}' petal-build.toml | head -n1)"
+          if [[ -z "$old" ]]; then
+            echo "::error::could not read the SDK revision from petal-build.toml [sdk]"
+            exit 1
+          fi
+
+          sdk_pin="$(grep -oE 'rev = "[0-9a-f]{40}"' route/Cargo.toml | head -n1 | grep -oE '[0-9a-f]{40}')"
+          if [[ -n "$sdk_pin" && "$sdk_pin" != "$old" ]]; then
+            echo "::error::petal-build.toml and route/Cargo.toml pin divergent SDK revisions ($old vs $sdk_pin); reconcile manually"
+            exit 1
+          fi
+
+          if [[ "$old" == "$new" ]]; then
+            echo "petal: up to date at $new"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for file in $(git grep -l "$old" -- . ':!route/Cargo.lock'); do
+            sed -i "s/$old/$new/g" "$file"
+          done
+
+          update_pkgs=(-p bloom-petal-sdk)
+          if grep -q 'bloom-petal-contract' route/Cargo.toml; then
+            update_pkgs+=(-p bloom-petal-contract)
+          fi
+          cargo update --manifest-path route/Cargo.toml "${update_pkgs[@]}"
+
+          echo "- petal: \`$old\` -> \`$new\`" > "$RUNNER_TEMP/summary.md"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Check formatting
+        if: steps.resolve.outputs.changed == 'true'
+        run: cargo fmt --manifest-path route/Cargo.toml -- --check
+
+      - name: Test route crate
+        if: steps.resolve.outputs.changed == 'true'
+        run: cargo test --manifest-path route/Cargo.toml --locked
+
+      - name: Clippy route crate
+        if: steps.resolve.outputs.changed == 'true'
+        run: cargo clippy --manifest-path route/Cargo.toml --locked --all-targets -- -D warnings
+
+      - name: Enforce change scope
+        if: steps.resolve.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          CHANGED_FILES="$(git diff --name-only)"
+          if [[ "$(printf '%s\n' "$CHANGED_FILES" | grep -Ev '^(petal-build\.toml|route/Cargo\.(toml|lock)|scripts/|\.github/workflows/)' || true)" != "" ]]; then
+            echo "::error::bump changed files outside the known SDK pin locations"
+            printf '%s\n' "$CHANGED_FILES"
+            exit 1
+          fi
+          git diff --check
+
+      - name: Open or update bump PR
+        if: steps.resolve.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: bump pinned Petal SDK revision"
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+
+          NOTES="$(mktemp)"
+          {
+            echo "## Petal SDK pin bump"
+            echo
+            cat "$RUNNER_TEMP/summary.md"
+            echo
+            echo "Resolved from the default-branch head of bloom-directory/petal."
+            echo "Check the contract changelog in petal/docs for breaking WIT or SDK"
+            echo "changes before merging; the full route CI (including the wasm build"
+            echo "and route-contract smoke test) runs on this PR."
+          } > "$NOTES"
+
+          EXISTING_PR="$(gh pr list --head "$BRANCH" --state open --json url --jq '.[0].url')"
+          if [[ -n "$EXISTING_PR" ]]; then
+            gh pr edit "$EXISTING_PR" --body-file "$NOTES"
+            echo "updated $EXISTING_PR"
+          else
+            gh pr create \
+              --base "$BASE" \
+              --head "$BRANCH" \
+              --title "chore: bump pinned Petal SDK revision" \
+              --body-file "$NOTES"
+          fi
