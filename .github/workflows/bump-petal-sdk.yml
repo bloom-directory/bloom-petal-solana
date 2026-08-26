@@ -3,7 +3,7 @@ name: Bump Petal SDK
 # This workflow advances the pinned bloom-directory/petal SDK revision to the
 # petal repository's default-branch head and opens a reviewed pull request.
 # The pin lives in several places that must stay in sync: petal-build.toml
-# [sdk], route/Cargo.toml, scripts/build.sh, and this repository's CI pin.
+# [sdk], Cargo.toml, scripts/build.sh, and this repository's CI pin.
 # All occurrences of the current revision string are rewritten together.
 #
 # RELEASE_PR_TOKEN must be a repository secret containing a fine-grained PAT
@@ -30,14 +30,14 @@ jobs:
     name: Open reviewed SDK bump PR
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     env:
-      GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
       BASE: ${{ github.event.repository.default_branch }}
       BRANCH: chore/bump-petal-sdk
     steps:
       - name: Require release PR token
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
         run: |
           set -euo pipefail
           if [[ -z "${GH_TOKEN:-}" ]]; then
@@ -49,10 +49,13 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-          token: ${{ secrets.RELEASE_PR_TOKEN }}
+          persist-credentials: false
 
       - name: Install Rust toolchain
         run: rustup show
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Resolve and rewrite the pinned SDK revision
         id: resolve
@@ -73,9 +76,9 @@ jobs:
             exit 1
           fi
 
-          sdk_pin="$(grep -oE 'rev = "[0-9a-f]{40}"' route/Cargo.toml | head -n1 | grep -oE '[0-9a-f]{40}')"
+          sdk_pin="$(grep -oE 'rev = "[0-9a-f]{40}"' Cargo.toml | head -n1 | grep -oE '[0-9a-f]{40}')"
           if [[ -n "$sdk_pin" && "$sdk_pin" != "$old" ]]; then
-            echo "::error::petal-build.toml and route/Cargo.toml pin divergent SDK revisions ($old vs $sdk_pin); reconcile manually"
+            echo "::error::petal-build.toml and Cargo.toml pin divergent SDK revisions ($old vs $sdk_pin); reconcile manually"
             exit 1
           fi
 
@@ -85,37 +88,37 @@ jobs:
             exit 0
           fi
 
-          for file in $(git grep -l "$old" -- . ':!route/Cargo.lock'); do
+          for file in $(git grep -l "$old" -- . ':!Cargo.lock'); do
             sed -i "s/$old/$new/g" "$file"
           done
 
           update_pkgs=(-p bloom-petal-sdk)
-          if grep -q 'bloom-petal-contract' route/Cargo.toml; then
+          if grep -q 'bloom-petal-contract' Cargo.toml; then
             update_pkgs+=(-p bloom-petal-contract)
           fi
-          cargo update --manifest-path route/Cargo.toml "${update_pkgs[@]}"
+          cargo update --manifest-path Cargo.toml "${update_pkgs[@]}"
 
           echo "- petal: \`$old\` -> \`$new\`" > "$RUNNER_TEMP/summary.md"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Check formatting
         if: steps.resolve.outputs.changed == 'true'
-        run: cargo fmt --manifest-path route/Cargo.toml -- --check
+        run: cargo fmt --all -- --check
 
-      - name: Test route crate
+      - name: Check driver crate
         if: steps.resolve.outputs.changed == 'true'
-        run: cargo test --manifest-path route/Cargo.toml --locked
+        run: cargo check --target wasm32-unknown-unknown --locked
 
-      - name: Clippy route crate
+      - name: Clippy driver crate
         if: steps.resolve.outputs.changed == 'true'
-        run: cargo clippy --manifest-path route/Cargo.toml --locked --all-targets -- -D warnings
+        run: cargo clippy --target wasm32-unknown-unknown --locked -- -D warnings
 
       - name: Enforce change scope
         if: steps.resolve.outputs.changed == 'true'
         run: |
           set -euo pipefail
           CHANGED_FILES="$(git diff --name-only)"
-          if [[ "$(printf '%s\n' "$CHANGED_FILES" | grep -Ev '^(petal-build\.toml|route/Cargo\.(toml|lock)|scripts/|\.github/workflows/)' || true)" != "" ]]; then
+          if [[ "$(printf '%s\n' "$CHANGED_FILES" | grep -Ev '^(petal-build\.toml|Cargo\.(toml|lock)|scripts/|\.github/workflows/)' || true)" != "" ]]; then
             echo "::error::bump changed files outside the known SDK pin locations"
             printf '%s\n' "$CHANGED_FILES"
             exit 1
@@ -124,13 +127,18 @@ jobs:
 
       - name: Open or update bump PR
         if: steps.resolve.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "chore: bump pinned Petal SDK revision"
+          git config --local http.https://github.com/.extraheader \
+            "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           git push --force origin "HEAD:refs/heads/$BRANCH"
+          git config --local --unset http.https://github.com/.extraheader
 
           NOTES="$(mktemp)"
           {
