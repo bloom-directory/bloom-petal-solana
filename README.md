@@ -4,8 +4,8 @@
 > preinstalled, or maintained as a product surface. Native Solana support in
 > the main [`bloom`](https://github.com/bloom-directory/bloom) repository
 > replaced the Petal-based approach. This repository now serves as a
-> reference implementation of a standalone chain-driver Petal and as a
-> fixture for the out-of-process triad integration harness.
+> reference implementation of a standalone chain-driver Petal, kept for the
+> reusable pieces it produced.
 
 A content-addressed chain driver Petal for native SOL transfers, built when
 Solana support was explored as a Petal. The routes and capability design
