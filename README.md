@@ -1,7 +1,15 @@
 # solana-driver
 
-The Bloom Solana driver Petal: a content-addressed first-party chain driver
-for native SOL transfers.
+> **Status: unused — kept for reference only.** This Petal is not shipped,
+> preinstalled, or maintained as a product surface. Native Solana support in
+> the main [`bloom`](https://github.com/bloom-directory/bloom) repository
+> replaced the Petal-based approach. This repository now serves as a
+> reference implementation of a standalone chain-driver Petal, kept for the
+> reusable pieces it produced.
+
+A content-addressed chain driver Petal for native SOL transfers, built when
+Solana support was explored as a Petal. The routes and capability design
+below document how that experiment worked.
 
 ## Routes
 
@@ -25,6 +33,6 @@ message this driver constructs.
 
 ## Build
 
-`./build-petal.sh` builds for `wasm32-unknown-unknown`, wraps each route as a
+`scripts/build.sh` builds for `wasm32-unknown-unknown`, wraps each route as a
 component, validates, and records content-addressed artifacts under
 `artifacts/`.
